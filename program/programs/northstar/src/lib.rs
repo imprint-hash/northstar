@@ -30,7 +30,7 @@ pub mod northstar {
         d.last_code = 0;
         d.evidence = [0u8; 32];
         d.bump = ctx.bumps.deal;
-        token::transfer(CpiContext::new(ctx.accounts.token_program.to_account_info(), Transfer {
+        token::transfer(CpiContext::new(ctx.accounts.token_program.key(), Transfer {
             from: ctx.accounts.buyer_token.to_account_info(), to: ctx.accounts.vault.to_account_info(), authority: ctx.accounts.buyer.to_account_info() }), amount)?;
         emit!(DealOpened { deal: d.key(), amount, deadline });
         Ok(())
@@ -55,7 +55,7 @@ pub mod northstar {
         require!(Clock::get()?.unix_timestamp < d.deadline, NsError::DeadlinePassed);
         let (buyer, id, bump, amount) = (d.buyer, d.deal_id.to_le_bytes(), d.bump, d.amount);
         let seeds: &[&[u8]] = &[b"deal", buyer.as_ref(), &id, &[bump]];
-        token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), Transfer {
+        token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.key(), Transfer {
             from: ctx.accounts.vault.to_account_info(), to: ctx.accounts.seller_token.to_account_info(), authority: ctx.accounts.deal.to_account_info() }, &[seeds]), amount)?;
         let d = &mut ctx.accounts.deal;
         d.status = Status::Released;
@@ -73,7 +73,7 @@ pub mod northstar {
         require!(Clock::get()?.unix_timestamp >= d.deadline, NsError::TooEarly);
         let (buyer, id, bump, amount) = (d.buyer, d.deal_id.to_le_bytes(), d.bump, d.amount);
         let seeds: &[&[u8]] = &[b"deal", buyer.as_ref(), &id, &[bump]];
-        token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), Transfer {
+        token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.key(), Transfer {
             from: ctx.accounts.vault.to_account_info(), to: ctx.accounts.buyer_token.to_account_info(), authority: ctx.accounts.deal.to_account_info() }, &[seeds]), amount)?;
         let d = &mut ctx.accounts.deal;
         d.status = Status::Refunded;

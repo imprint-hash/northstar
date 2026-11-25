@@ -22,4 +22,4 @@ anchor-debug = []
 
 [dependencies]
 anchor-lang = "1.2.2"
-anchor-spl = { version = "1.2.2", default-features = false, features = ["token", "solana-v3"] }
+anchor-spl = "1.2.2"
