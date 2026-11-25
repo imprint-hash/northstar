@@ -24,7 +24,7 @@ function stage(d) {
 }
 const lastRound = (d) => [...(d.rounds || [])].reverse().find((r) => r.vessel?.ok && r.vessel.result?.latitude != null);
 
-let state = { deals: [] }, selected = null, map, shipMarker, portCircle, routeLine;
+let state = { deals: [] }, selected = null, map;
 
 function renderList() {
   const el = $("#deals");
@@ -39,7 +39,7 @@ function renderList() {
       <div class="row3"><span>${esc(d.supplier)}</span><span>${usd(d.amount)}</span></div>
     </button>`;
   }).join("");
-  el.querySelectorAll(".deal").forEach((b) => b.addEventListener("click", () => { selected = b.dataset.id; render(); }));
+  el.querySelectorAll(".deal").forEach((b) => b.addEventListener("click", () => { selected = b.dataset.id; lastFit = null; if (shipMk) { shipMk.remove(); shipEl = null; shipMk = null; } render(); }));
 }
 
 function renderDetail(d) {
@@ -95,34 +95,83 @@ function nearestZone(d, s) {
   const dd = (z) => (z.lat - s[0]) ** 2 + ((z.lon - s[1]) * Math.cos(s[0] * Math.PI / 180)) ** 2;
   const z = zs.reduce((a, b) => (dd(b) < dd(a) ? b : a)); return [z.lat, z.lon];
 }
-function renderMap(d) {
-  if (!map) {
-    map = L.map("map", { zoomControl: true, attributionControl: true, worldCopyJump: true }).setView([30, 0], 2);
-    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 17, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" }).addTo(map);
+const circle = (lat, lon, km, n = 72) => { const pts = []; for (let i = 0; i <= n; i++) { const a = (i / n) * 2 * Math.PI; pts.push([lon + (km / (111.32 * Math.cos(lat * Math.PI / 180))) * Math.sin(a), lat + (km / 110.57) * Math.cos(a)]); } return pts; };
+// Dead reckoning: from the last AIS fix, sail on at the reported speed and course (capped at 15 min).
+function estimate(fix) {
+  const v = fix.result; const sp = v.speed_knots || 0, cog = v.course_deg;
+  const mins = Math.min(15, Math.max(0, (Date.now() - Date.parse(v.observed_at)) / 60000));
+  if (sp < 0.5 || cog == null) return { lat: v.latitude, lon: v.longitude, moved: 0 };
+  const km = sp * 1.852 * (mins / 60), a = cog * Math.PI / 180;
+  return { lat: v.latitude + (km / 110.57) * Math.cos(a), lon: v.longitude + (km / (111.32 * Math.cos(v.latitude * Math.PI / 180))) * Math.sin(a), moved: km };
+}
+const SHIP_SVG = `<svg class="hull" viewBox="0 0 34 34"><path d="M17 3 C20 7 21 11 21 15 L21 28 Q17 31 13 28 L13 15 C13 11 14 7 17 3 Z" fill="#EAF7FF" stroke="#0B2236" stroke-width="1"/><rect x="14.6" y="12" width="4.8" height="3" rx=".6" fill="#3DDC97"/><rect x="14.6" y="16.5" width="4.8" height="3" rx=".6" fill="#F2B84B"/><rect x="14.6" y="21" width="4.8" height="3" rx=".6" fill="#7FD4F5"/><rect x="15" y="25" width="4" height="2.2" rx=".5" fill="#0B2236"/></svg>`;
+let shipEl, shipMk, mapReady = false, current = null, lastFit = null;
+
+function initMap() {
+  map = new maplibregl.Map({ container: "map", attributionControl: { compact: true }, center: [5, 40], zoom: 2.2, pitch: 55, bearing: -15, maxPitch: 75,
+    style: { version: 8,
+      sources: {
+        sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 17, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" },
+        dem: { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, encoding: "terrarium", maxzoom: 12, attribution: "Terrain: Mapzen / AWS Open Data" } },
+      layers: [{ id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": -0.25, "raster-brightness-max": 0.85, "raster-contrast": 0.1 } }],
+      sky: { "sky-color": "#06121F", "horizon-color": "#163a5c", "fog-color": "#0A1B2D", "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.4 } } });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.on("load", () => {
+    map.setTerrain({ source: "dem", exaggeration: 1.4 });
+    map.addSource("zones", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({ id: "zone-fill", type: "fill", source: "zones", paint: { "fill-color": "#3DDC97", "fill-opacity": 0.1 } });
+    map.addLayer({ id: "zone-line", type: "line", source: "zones", paint: { "line-color": "#3DDC97", "line-width": 1.6, "line-dasharray": [2, 2] } });
+    map.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({ id: "route", type: "line", source: "route", paint: { "line-color": "#7FD4F5", "line-width": 2, "line-dasharray": [1, 2.5], "line-opacity": 0.9 } });
+    map.addSource("trail", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({ id: "trail", type: "circle", source: "trail", paint: { "circle-radius": 3, "circle-color": "#7FD4F5", "circle-opacity": 0.55, "circle-stroke-width": 1, "circle-stroke-color": "#06121F" } });
+    mapReady = true; if (current) renderMap(current, true);
+  });
+  // move the ship a little every second (dead reckoning between fixes)
+  setInterval(() => { if (current) placeShip(current, false); }, 1000);
+}
+
+function placeShip(d, fit) {
+  const r = lastRound(d); if (!r || !mapReady) return;
+  const e = estimate(r.vessel);
+  if (!shipEl) { shipEl = document.createElement("div"); shipEl.className = "ship"; shipEl.innerHTML = `<span class="ping"></span><span class="wake"></span>${SHIP_SVG}`; shipMk = new maplibregl.Marker({ element: shipEl, rotationAlignment: "map", pitchAlignment: "map" }).setLngLat([e.lon, e.lat]).addTo(map); }
+  shipMk.setLngLat([e.lon, e.lat]).setRotation(r.vessel.result.course_deg || 0);
+  shipEl.querySelector(".wake").style.opacity = (r.vessel.result.speed_knots || 0) > 0.5 ? 1 : 0;
+  const z = nearestZone(d, [e.lat, e.lon]);
+  map.getSource("route")?.setData({ type: "Feature", geometry: { type: "LineString", coordinates: [[e.lon, e.lat], [z[1], z[0]]] } });
+  $("#mapNote").textContent = e.moved > 0.05 ? `Ship position estimated from its last AIS fix (${ago(r.vessel.result.observed_at)}) at ${r.vessel.result.speed_knots} kn, course ${Math.round(r.vessel.result.course_deg)}°.` : `Last AIS fix ${ago(r.vessel.result.observed_at)}.`;
+  if (fit) {
+    const b = new maplibregl.LngLatBounds([e.lon, e.lat], [e.lon, e.lat]); b.extend([z[1], z[0]]);
+    map.fitBounds(b, { padding: { top: 90, bottom: 140, left: 60, right: 60 }, maxZoom: 11.5, pitch: 58, bearing: (r.vessel.result.course_deg || 0) - 20, duration: 2400 });
   }
-  [shipMarker, portCircle, routeLine].forEach((l) => l && map.removeLayer(l));
+}
+
+function renderMap(d, force) {
+  current = d;
   const card = $("#mapCard");
-  if (!d || !d.portInfo?.lat) { card.innerHTML = ""; return; }
-  const p = [d.portInfo.lat, d.portInfo.lon];
-  portCircle = L.featureGroup((d.portInfo.zones || [{ name: d.portInfo.name, lat: p[0], lon: p[1], radiusKm: d.portInfo.radiusKm }]).map((z) =>
-    L.circle([z.lat, z.lon], { radius: z.radiusKm * 1000, color: "#3DDC97", weight: 1.5, fillOpacity: 0.08, dashArray: "4 6" }).bindTooltip(`${z.name}: release zone`))).addTo(map);
-  const r = lastRound(d);
-  if (r) {
-    const s = [r.vessel.result.latitude, r.vessel.result.longitude];
-    shipMarker = L.marker(s, { icon: L.divIcon({ className: "", html: `<div class="ship-ico"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(map).bindTooltip(`${d.vessel} · ${r.vessel.result.speed_knots} kn`);
-    routeLine = L.polyline([s, nearestZone(d, s)], { color: "#7FD4F5", weight: 2, dashArray: "6 8" }).addTo(map);
-    map.fitBounds(L.latLngBounds([s, nearestZone(d, s)]).pad(0.8), { maxZoom: 10 });
-  } else map.setView(p, 9);
-  const v = r?.verdict;
-  card.innerHTML = `<div><small>To release zone</small><b>${v?.distanceKm ?? "–"} km</b></div><div><small>Speed</small><b>${r ? r.vessel.result.speed_knots + " kn" : "–"}</b></div>
-    <div><small>Last AIS fix</small><b>${r ? ago(r.vessel.result.observed_at) : "–"}</b></div><div><small>Escrow</small><b style="color:${d.status === "released" ? "var(--paid)" : "var(--hold)"}">${d.status === "released" ? "Paid" : d.status === "refunded" ? "Refunded" : "Holding"}</b></div>`;
+  if (!d) { card.innerHTML = ""; return; }
+  const r = lastRound(d); const v = r?.verdict;
+  card.innerHTML = `<div class="vname"><b>${esc(d.vessel)}</b><span>${d.mmsi ? "MMSI " + esc(d.mmsi) + " · " : ""}to ${esc(d.portInfo?.name || d.port)}</span></div>
+    <div><small>To release zone</small><b>${v?.distanceKm ?? "–"} km</b></div><div><small>Speed</small><b>${r ? r.vessel.result.speed_knots + " kn" : "–"}</b></div>
+    <div><small>Last AIS fix</small><b>${r ? ago(r.vessel.result.observed_at) : "–"}</b></div><div><small>Escrow</small><b style="color:${d.status === "released" ? "var(--paid)" : d.status === "refunded" ? "var(--muted)" : "var(--hold)"}">${d.status === "released" ? "Paid" : d.status === "refunded" ? "Refunded" : "Holding"}</b></div>`;
+  if (!map) initMap();
+  if (!mapReady || !d.portInfo?.lat) return;
+  const zones = d.portInfo.zones || [{ lat: d.portInfo.lat, lon: d.portInfo.lon, radiusKm: d.portInfo.radiusKm }];
+  map.getSource("zones").setData({ type: "FeatureCollection", features: zones.map((z) => ({ type: "Feature", properties: { name: z.name }, geometry: { type: "Polygon", coordinates: [circle(z.lat, z.lon, z.radiusKm)] } })) });
+  // earlier fixes of this ship (skip any far from the latest one: before the MMSI fix, a same-named ship was asked once)
+  const near = (x) => !r || Math.abs(x.vessel.result.latitude - r.vessel.result.latitude) + Math.abs(x.vessel.result.longitude - r.vessel.result.longitude) < 3;
+  const trail = (d.rounds || []).filter((x) => x.vessel?.ok && x.vessel.result?.latitude != null && near(x)).map((x) => ({ type: "Feature", geometry: { type: "Point", coordinates: [x.vessel.result.longitude, x.vessel.result.latitude] } }));
+  map.getSource("trail").setData({ type: "FeatureCollection", features: trail });
+  const key = d.id + ":" + (d.rounds || []).length;
+  if (!r) { if (force || lastFit !== key) map.flyTo({ center: [d.portInfo.lon, d.portInfo.lat], zoom: 9, pitch: 58, duration: 2000 }); lastFit = key; if (shipMk) { shipMk.remove(); shipEl = null; shipMk = null; } return; }
+  placeShip(d, force || lastFit !== key); lastFit = key;
 }
 
 function render() {
   if (!selected && state.deals.length) selected = state.deals[0].id;
   renderList();
   const d = state.deals.find((x) => x.id === selected);
-  renderDetail(d); renderMap(d);
+  renderDetail(d); renderMap(d, false);
   const paid = state.deals.filter((x) => x.status === "released").length;
   const held = state.deals.filter((x) => x.status === "open").reduce((a, x) => a + x.amount, 0);
   const checks = state.deals.reduce((a, x) => a + (x.rounds || []).length * 2 + (x.supplierCheck ? 2 : 0), 0);

@@ -8,10 +8,11 @@
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<canvas id="sky" aria-hidden="true"></canvas>
 <header class="top">
   <a class="brand" href="#"><img src="logo.svg" alt=""><span>Northstar</span></a>
   <nav><a href="#app">Deals</a><a href="#how">How it works</a><a href="https://github.com/imprint-hash/quay" target="_blank" rel="noopener">Quay miner</a></nav>
@@ -43,22 +44,23 @@
 </section>
 
 <main id="app" class="app">
-  <aside class="list">
-    <div class="list-head"><h2>Deals</h2><span class="muted mono" id="tick"></span></div>
-    <div id="deals" class="deals"><p class="empty">Loading deals…</p></div>
-  </aside>
-
-  <section class="detail" id="detail">
-    <div class="steps" id="steps"></div>
-    <div class="bl" id="bl"></div>
-    <div class="timeline-head"><h3>Checks</h3><span class="muted">each one a paid Telegraph ask, each change written on-chain</span></div>
-    <ol class="timeline" id="timeline"></ol>
-  </section>
-
-  <section class="mapwrap">
+  <section class="stage">
     <div id="map"></div>
-    <div class="map-card" id="mapCard"></div>
+    <div class="steps" id="steps"></div>
+    <div class="bridge" id="mapCard"></div>
+    <p class="map-note" id="mapNote"></p>
   </section>
+  <div class="desk">
+    <aside class="list">
+      <div class="list-head"><h2>Deals</h2><span class="muted mono" id="tick"></span></div>
+      <div id="deals" class="deals"><p class="empty">Loading deals…</p></div>
+    </aside>
+    <section class="detail" id="detail">
+      <div class="bl" id="bl"></div>
+      <div class="timeline-head"><h3>Checks</h3><span class="muted">each one a paid Telegraph ask, each change written on-chain</span></div>
+      <ol class="timeline" id="timeline"></ol>
+    </section>
+  </div>
 </main>
 
 <section class="how" id="how">
@@ -71,7 +73,8 @@
   <p class="fine">Demo deals use a devnet test token and real ships chosen as they approach a port. Program <a class="mono" id="progLink" target="_blank" rel="noopener"></a></p>
 </section>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="sky.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
