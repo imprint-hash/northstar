@@ -32,8 +32,35 @@ function post(url, body, headers = {}) {
   });
 }
 
+// With an Anjoman API key, Northstar buys through its Anjoman account (Telegraph backend, Bearer key,
+// paid from the account's escrow), so its purchases are credited to a registered app.
+const ANJOMAN = process.env.ANJOMAN_BACKEND || "https://backend.telegraphprotocol.com";
+let anjomanKey;
+function anjomanKeyOrNull() {
+  if (anjomanKey !== undefined) return anjomanKey;
+  try { anjomanKey = (process.env.ANJOMAN_API_KEY || (process.env.ANJOMAN_KEY_FILE ? fs.readFileSync(process.env.ANJOMAN_KEY_FILE, "utf8") : "")).trim() || null; } catch { anjomanKey = null; }
+  return anjomanKey;
+}
+async function askAnjoman(intent, params, miner) {
+  const t0 = Date.now();
+  const r = await post(miner ? `${ANJOMAN}/engine/ask/${miner}` : `${ANJOMAN}/engine/ask`, JSON.stringify({ intent, params }), { Authorization: `Bearer ${anjomanKeyOrNull()}` });
+  let j = null; try { j = JSON.parse(r.body); } catch {}
+  // Anjoman wraps the node's answer: { result: { miner_name, result: {...intent fields}, cost_usd, signal_hash }, receipt: {...} }
+  const env = j?.result && typeof j.result === "object" && "result" in j.result ? j.result : j;
+  const ok = r.status >= 200 && r.status < 300 && env && env.result != null;
+  const rc = typeof j?.receipt === "object" ? j.receipt : null;
+  return { ok, status: r.status, via: "anjoman", intent, params, result: env?.result ?? null, miner: env?.miner_name || null, minerId: env?.miner_id ?? miner, signalHash: env?.signal_hash || null,
+    receipt: rc?.receipt_hash || null, epoch: rc?.epoch_id ?? null, payer: rc?.payer || null, priceUsdc: Number(env?.cost_usd ?? (rc ? Number(rc.amount_uusdc) / 1e6 : 0)),
+    ms: Date.now() - t0, error: ok ? null : (j?.message || j?.error || r.body.slice(0, 200)) };
+}
+
 // Ask Telegraph (optionally pinned to one miner). Returns { ok, result, miner, receipt, epoch, priceUsdc, ms }.
+// Through Anjoman when a key is configured; otherwise straight to the node with x402 escrow signing.
 export async function ask(intent, params, { miner = null } = {}) {
+  if (anjomanKeyOrNull()) {
+    const a = await askAnjoman(intent, params, miner);
+    if (a.ok || !/balance|unauthor|401|403/i.test(String(a.error) + a.status)) return a;
+  }
   const url = miner ? `${NODE}/${miner}` : NODE;
   const body = JSON.stringify({ intent, params });
   const t0 = Date.now();

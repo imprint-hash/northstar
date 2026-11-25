@@ -33,9 +33,9 @@ function publicDeal(d) {
     supplierCheck: d.supplierCheck && { at: d.supplierCheck.at, verdict: d.supplierCheck.verdict,
       registry: pick(d.supplierCheck.registry), sanctions: pick(d.supplierCheck.sanctions) },
     rounds: (d.rounds || []).map((r) => ({ at: r.at, verdict: r.verdict, evidence: r.evidence, tx: r.tx?.signature ? { signature: r.tx.signature, url: explorer(r.tx.signature) } : r.tx?.error ? { error: r.tx.error } : null,
-      vessel: pick(r.vessel), port: pick(r.port) })) };
+      vessel: pick(r.vessel), port: pick(r.port), second: pick(r.second), corroboration: r.corroboration || null })) };
 }
-const pick = (a) => a && { ok: a.ok, miner: a.miner, minerId: a.minerId, result: a.result, receipt: a.receipt, epoch: a.epoch, priceUsdc: a.priceUsdc, ms: a.ms, error: a.error };
+const pick = (a) => a && { ok: a.ok, via: a.via || "x402", miner: a.miner, minerId: a.minerId, result: a.result, receipt: a.receipt, epoch: a.epoch, priceUsdc: a.priceUsdc, ms: a.ms, error: a.error };
 
 async function quayJson(p) { const r = await fetch(QUAY_LOCAL + p, { signal: AbortSignal.timeout(10000) }); return r.json(); }
 

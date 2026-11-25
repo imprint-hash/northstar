@@ -6,7 +6,7 @@ const usd = (n) => `${Number(n || 0).toLocaleString("en-US")} USDC`;
 const ago = (iso) => { const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 const tx = (sig) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
 
-const LABEL = { FUNDED: "Funded", SUPPLIER_BLOCKED: "Supplier blocked", AT_SEA: "At sea", ARRIVING: "Arriving", IN_PORT_CONFIRMING: "In port · confirming", STALE_FIX: "Waiting for fresh fix",
+const LABEL = { SOURCES_CONFLICT: "Sources disagree: holding", FUNDED: "Funded", SUPPLIER_BLOCKED: "Supplier blocked", AT_SEA: "At sea", ARRIVING: "Arriving", IN_PORT_CONFIRMING: "In port · confirming", STALE_FIX: "Waiting for fresh fix",
   DARK: "Ship went dark", NOT_SEEN: "Not heard yet", NO_ANSWER: "Retrying", UNKNOWN_PORT: "Unknown port", ARRIVED: "Paid on arrival", REFUNDED: "Refunded" };
 function pillFor(d) {
   if (d.status === "released") return `<span class="pill paid">Paid</span>`;
@@ -42,6 +42,13 @@ function renderList() {
   el.querySelectorAll(".deal").forEach((b) => b.addEventListener("click", () => { selected = b.dataset.id; lastFit = null; if (shipMk) { shipMk.remove(); shipEl = null; shipMk = null; } render(); }));
 }
 
+// Economic value: how soon after the ship stopped in port the supplier was paid.
+function paidAfter(d) {
+  const firstInPort = (d.rounds || []).find((r) => ["IN_PORT_CONFIRMING", "ARRIVED"].includes(r.verdict?.code));
+  if (d.status === "released" && firstInPort) { const m = Math.max(1, Math.round((Date.parse(d.releasedAt) - Date.parse(firstInPort.at)) / 60000)); return `${m} min after the ship stopped in port (open-account terms usually pay 30–60 days later)`; }
+  if (d.status === "refunded") return "not paid: no verified arrival";
+  return firstInPort ? "ship is in port; paying after a second fix" : "on arrival, minutes after docking (not 30–60 days later)";
+}
 function renderDetail(d) {
   if (!d) { $("#steps").innerHTML = ""; $("#bl").innerHTML = `<p class="muted">Select a deal.</p>`; $("#timeline").innerHTML = ""; return; }
   const st = stage(d); const blocked = d.state === "SUPPLIER_BLOCKED";
@@ -67,6 +74,8 @@ function renderDetail(d) {
       <div><small>Sanctions</small><span>${sc ? (sc.flags.some((f) => f.code === "SANCTIONS_MATCH") ? "MATCH: blocked" : sc.sanctionsClear ? "clear" : "no clear answer") : "checking…"}</span></div>
       <div><small>Deadline (refund after)</small><span>${new Date(d.deadline).toUTCString().slice(5, 22)} UTC</span></div>
       <div><small>Status</small><span>${esc(LABEL[d.state] || d.state)}</span></div>
+      <div><small>Buyer protected</small><span>${d.status === "released" ? `${usd(d.amount)} released only after arrival was verified` : d.status === "refunded" ? `${usd(d.amount)} returned: the ship never arrived` : `${usd(d.amount)} cannot move until the ship is verified in port`}</span></div>
+      <div><small>Supplier paid</small><span>${paidAfter(d)}</span></div>
       <div><small>Opened</small><span>${d.openTx ? `<a href="${esc(d.openTx.url)}" target="_blank" rel="noopener">${ago(d.createdAt)} ↗</a>` : ago(d.createdAt)}</span></div>
     </div>
     ${d.status === "released" ? `<div class="stamp">PAID ON ARRIVAL</div>` : ""}`;
@@ -81,7 +90,8 @@ function renderDetail(d) {
   for (const r of d.rounds || []) {
     const v = r.verdict || {};
     const meta = [];
-    if (r.vessel) meta.push(`Quay${r.vessel.receipt ? ` · receipt ${esc(short(r.vessel.receipt, 6))}` : ""}${r.vessel.ms ? ` · ${(r.vessel.ms / 1000).toFixed(1)} s` : ""}`);
+    if (r.vessel) meta.push(`Quay${r.vessel.via === "anjoman" ? " via Anjoman" : ""}${r.vessel.receipt ? ` · receipt ${esc(short(r.vessel.receipt, 6))}` : ""}${r.vessel.ms ? ` · ${(r.vessel.ms / 1000).toFixed(1)} s` : ""}`);
+    if (r.corroboration) meta.push(`2nd source: ${esc(r.corroboration.status.toLowerCase())}`);
     if (r.port?.ok) meta.push(`port: ${esc(r.port.result.vessels_waiting)} waiting, ${esc(r.port.result.congestion_level)}`);
     if (r.tx?.url) meta.push(`<a href="${esc(r.tx.url)}" target="_blank" rel="noopener">${v.action === "RELEASE" ? "release" : "on-chain record"} ↗</a>`);
     events.push({ cls: v.action === "RELEASE" ? "paid" : v.code === "DARK" ? "bad" : "", at: r.at, text: esc(v.text || v.code), meta });

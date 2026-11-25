@@ -82,3 +82,18 @@ export function judgeVoyage(deal, vessel, port, history = []) {
   if (!earlier) return { ...base, action: "HOLD", code: "IN_PORT_CONFIRMING", text: `${name} is stopped inside ${p.zone}. Confirming with a second fix in ${CONFIRM_MIN} min before paying.${portNote}` };
   return { ...base, action: "RELEASE", code: "ARRIVED", text: `${name} has been stopped inside ${p.zone} for at least ${Math.round((Date.now() - earlier.at) / 60000)} min (latest fix ${p.ageMinutes} min old). Paying the supplier.` };
 }
+
+// Second opinion before paying: another Telegraph miner's fix for the same ship. Most vessel miners
+// only cover some waters, so "no answer" is noted, not blocking. A fresh fix that disagrees with
+// Quay by more than 5 km blocks the release until the sources agree.
+export function judgeCorroboration(primary, second) {
+  const a = primary?.result, b = second?.result;
+  if (!second?.ok || b?.latitude == null || b?.longitude == null) return { status: "UNAVAILABLE", text: "No second vessel source covers this ship right now; relying on Quay alone." };
+  const lat = Math.abs(b.latitude) <= 90 ? b.latitude : null;
+  if (lat == null) return { status: "UNAVAILABLE", text: `${second.miner || "Second source"} returned an impossible position; ignored.` };
+  const d = km(a.latitude, a.longitude, b.latitude, b.longitude);
+  const gapMin = b.observed_at ? Math.abs(Date.parse(a.observed_at) - Date.parse(b.observed_at)) / 60000 : null;
+  const allowed = 5 + (gapMin != null ? ((a.speed_knots || 0) * 1.852 * gapMin) / 60 : 0);
+  if (d <= allowed) return { status: "AGREE", km: Math.round(d * 100) / 100, text: `${second.miner || "A second source"} agrees: ${Math.round(d * 100) / 100} km apart.` };
+  return { status: "CONFLICT", km: Math.round(d * 10) / 10, text: `${second.miner || "A second source"} puts the ship ${Math.round(d * 10) / 10} km from Quay's fix. Holding until the sources agree.` };
+}

@@ -8,7 +8,7 @@ async function pinnedOrRouted(intent, params, miner) {
   const r = await ask(intent, params, { miner });
   return r.ok ? r : ask(intent, params);
 }
-import { judgeSupplier, judgeVoyage } from "./verify.mjs";
+import { judgeSupplier, judgeVoyage, judgeCorroboration } from "./verify.mjs";
 
 export async function checkSupplier(deal) {
   const [registry, sanctions] = await Promise.all([
@@ -22,5 +22,15 @@ export async function checkVoyage(deal, history = []) {
   // Ask by MMSI when known: ship names are not unique (two ships called ELISE were 780 km apart).
   const vessel = await ask("VESSEL_TELEMETRY_VERIFY_GENERAL", { vessel: deal.mmsi ? String(deal.mmsi) : deal.vessel }, { miner: QUAY });
   const port = await ask("LIVE_PORT_CONGESTION_GENERAL", { port: deal.port }, { miner: QUAY });
-  return { at: new Date().toISOString(), kind: "voyage", vessel, port, verdict: judgeVoyage(deal, vessel, port, history) };
+  let verdict = judgeVoyage(deal, vessel, port, history);
+  let second = null, corroboration = null;
+  // Only when money is about to move (or the ship is confirming in port): buy a second opinion.
+  if (verdict.action === "RELEASE" || verdict.code === "IN_PORT_CONFIRMING") {
+    second = await ask("VESSEL_TELEMETRY_VERIFY_GENERAL", { vessel: deal.mmsi ? String(deal.mmsi) : deal.vessel });
+    if (second.minerId === QUAY || /quay/i.test(second.miner || "")) second = { ...second, ok: false, error: "routed back to Quay" };
+    corroboration = judgeCorroboration(vessel, second);
+    if (corroboration.status === "CONFLICT") verdict = { ...verdict, action: "HOLD", code: "SOURCES_CONFLICT", text: corroboration.text };
+    else verdict = { ...verdict, text: `${verdict.text} ${corroboration.text}` };
+  }
+  return { at: new Date().toISOString(), kind: "voyage", vessel, port, second, corroboration, verdict };
 }

@@ -6,7 +6,7 @@ import { load, save } from "./store.mjs";
 import { checkSupplier, checkVoyage } from "./checks.mjs";
 import * as chain from "./chain.mjs";
 
-const CODES = { AT_SEA: 2, ARRIVING: 3, IN_PORT_CONFIRMING: 4, STALE_FIX: 5, DARK: 6, NOT_SEEN: 7, NO_ANSWER: 8, UNKNOWN_PORT: 9, SUPPLIER_BLOCKED: 10, ARRIVED: 1 };
+const CODES = { AT_SEA: 2, ARRIVING: 3, IN_PORT_CONFIRMING: 4, STALE_FIX: 5, DARK: 6, NOT_SEEN: 7, NO_ANSWER: 8, UNKNOWN_PORT: 9, SUPPLIER_BLOCKED: 10, SOURCES_CONFLICT: 11, ARRIVED: 1 };
 const evidenceHash = (round) => crypto.createHash("sha256").update(JSON.stringify([round.vessel?.receipt, round.port?.receipt, round.vessel?.result, round.verdict?.code])).digest();
 
 export async function tick(log = console.log) {

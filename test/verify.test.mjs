@@ -41,3 +41,9 @@ test("a ship moored at Hamburg's city docks counts as in port (berth zone)", () 
   const v = judgeVoyage(d, fix(53.54, 9.97, 0, 3));
   assert.equal(v.code, "IN_PORT_CONFIRMING");
 });
+
+import { judgeCorroboration } from "../agent/verify.mjs";
+test("second source within 5 km agrees", () => assert.equal(judgeCorroboration(fix(51.9, 4.0, 0, 2), { ok: true, miner: "B", result: { latitude: 51.91, longitude: 4.0, observed_at: ago(3) } }).status, "AGREE"));
+test("second source 40 km away conflicts", () => assert.equal(judgeCorroboration(fix(51.9, 4.0, 0, 2), { ok: true, miner: "B", result: { latitude: 52.26, longitude: 4.0, observed_at: ago(3) } }).status, "CONFLICT"));
+test("second source with nulls is unavailable, not blocking", () => assert.equal(judgeCorroboration(fix(51.9, 4.0, 0, 2), { ok: true, result: { latitude: null } }).status, "UNAVAILABLE"));
+test("second source with swapped lat/lon (lat > 90) is ignored", () => assert.equal(judgeCorroboration(fix(63.5, 20.4, 0, 2), { ok: true, result: { latitude: 120.4, longitude: 63.5 } }).status, "UNAVAILABLE"));
