@@ -4,9 +4,28 @@
 import { createRequire } from "node:module";
 const PORTS = createRequire(import.meta.url)("./ports.cjs");
 
+// Quay's zones are drawn around anchorages (where ships queue). Where the berths sit far from
+// them (river ports), Northstar adds berth zones so a ship moored at the docks also counts as arrived.
+const BERTHS = {
+  DEHAM: [{ name: "Hamburg docks", lat: 53.53, lon: 9.93, radiusKm: 14 }],
+  CNSHA: [{ name: "Waigaoqiao", lat: 31.36, lon: 121.6, radiusKm: 15 }],
+  USHOU: [{ name: "Port of Houston terminals", lat: 29.72, lon: -95.15, radiusKm: 20 }],
+};
 export function findPort(q) {
   const s = String(q || "").trim().toUpperCase();
-  return PORTS.find((p) => p.code === s || p.names.some((n) => n.toUpperCase() === s)) || null;
+  const p = PORTS.find((x) => x.code === s || x.names.some((n) => n.toUpperCase() === s));
+  if (!p) return null;
+  return { ...p, zones: [{ name: `${p.names[0]} anchorage`, lat: p.lat, lon: p.lon, radiusKm: p.radiusKm }, ...(BERTHS[p.code] || [])] };
+}
+// Distance from a point to the nearest release zone (0 = inside one).
+export function zoneDistance(port, lat, lon) {
+  let best = { inside: false, km: Infinity, zone: null };
+  for (const z of port.zones) {
+    const d = km(lat, lon, z.lat, z.lon);
+    const out = Math.max(0, d - z.radiusKm);
+    if (out < best.km || (out === 0 && !best.inside)) best = { inside: d <= z.radiusKm, km: out, centreKm: d, zone: z.name };
+  }
+  return best;
 }
 
 export function km(a, b, c, d) {
@@ -37,9 +56,9 @@ export function position(deal, vessel) {
   const v = vessel?.result;
   if (!dest || !vessel?.ok || v?.latitude == null) return null;
   const ageMin = (Date.now() - Date.parse(v.observed_at)) / 60000;
-  const d = km(v.latitude, v.longitude, dest.lat, dest.lon);
-  return { dest, distanceKm: Math.round(d * 10) / 10, ageMinutes: Math.round(ageMin), speed: v.speed_knots, observedAt: v.observed_at,
-    inPort: d <= dest.radiusKm, stopped: v.speed_knots != null && v.speed_knots < STOPPED_KN };
+  const z = zoneDistance(dest, v.latitude, v.longitude);
+  return { dest, distanceKm: Math.round(z.km * 10) / 10, zone: z.zone, ageMinutes: Math.round(ageMin), speed: v.speed_knots, observedAt: v.observed_at,
+    inPort: z.inside, stopped: v.speed_knots != null && v.speed_knots < STOPPED_KN };
 }
 
 // One check of the ship against the deal. RELEASE needs two fresh fixes, at least 30 minutes apart,
@@ -55,11 +74,11 @@ export function judgeVoyage(deal, vessel, port, history = []) {
   if (p.ageMinutes > DARK_MIN) return { ...base, action: "HOLD", code: "DARK", text: `${name} has not been heard for ${Math.round(p.ageMinutes / 60)} h. Holding: a ship that goes dark is a risk signal.` };
   const c = port?.ok ? port.result : null;
   const portNote = c ? ` ${c.vessels_waiting} ships waiting at ${dest.names[0]}, congestion ${c.congestion_level}.` : "";
-  if (!p.inPort) return { ...base, action: "HOLD", code: "AT_SEA", text: `${name} is ${p.distanceKm} km from ${dest.names[0]}, ${p.speed ?? "?"} kn.${portNote}` };
+  if (!p.inPort) return { ...base, action: "HOLD", code: "AT_SEA", text: `${name} is ${p.distanceKm} km from the ${dest.names[0]} release zone, ${p.speed ?? "?"} kn.${portNote}` };
   if (!p.stopped) return { ...base, action: "HOLD", code: "ARRIVING", text: `${name} is inside ${dest.names[0]} and still moving (${p.speed} kn).${portNote}` };
   if (p.ageMinutes > FRESH_MIN) return { ...base, action: "HOLD", code: "STALE_FIX", text: `${name} was stopped at ${dest.names[0]}, but that fix is ${p.ageMinutes} min old. Waiting for a fresh one.` };
   const earlier = history.map((h) => ({ at: Date.parse(h.at), p: position(deal, h.vessel) }))
     .find((h) => h.p && h.p.inPort && h.p.stopped && h.p.ageMinutes <= FRESH_MIN + (Date.now() - h.at) / 60000 && Date.now() - h.at >= CONFIRM_MIN * 60000);
-  if (!earlier) return { ...base, action: "HOLD", code: "IN_PORT_CONFIRMING", text: `${name} is stopped inside ${dest.names[0]} (${p.distanceKm} km from the port centre). Confirming with a second fix in ${CONFIRM_MIN} min before paying.${portNote}` };
-  return { ...base, action: "RELEASE", code: "ARRIVED", text: `${name} has been stopped inside ${dest.names[0]} for at least ${Math.round((Date.now() - earlier.at) / 60000)} min (${p.distanceKm} km from the port centre, fix ${p.ageMinutes} min old). Paying the supplier.` };
+  if (!earlier) return { ...base, action: "HOLD", code: "IN_PORT_CONFIRMING", text: `${name} is stopped inside ${p.zone}. Confirming with a second fix in ${CONFIRM_MIN} min before paying.${portNote}` };
+  return { ...base, action: "RELEASE", code: "ARRIVED", text: `${name} has been stopped inside ${p.zone} for at least ${Math.round((Date.now() - earlier.at) / 60000)} min (latest fix ${p.ageMinutes} min old). Paying the supplier.` };
 }

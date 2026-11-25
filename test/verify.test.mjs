@@ -35,3 +35,9 @@ test("registered, active, not sanctioned passes", () => {
   assert.equal(v.ok, true); assert.equal(v.sanctionsClear, true); assert.equal(v.flags.length, 0);
 });
 test("a check that did not answer warns but does not block", () => assert.equal(judgeSupplier({ ok: false }, { ok: false }).ok, true));
+
+test("a ship moored at Hamburg's city docks counts as in port (berth zone)", () => {
+  const d = { vessel: "X", port: "Hamburg" };
+  const v = judgeVoyage(d, fix(53.54, 9.97, 0, 3));
+  assert.equal(v.code, "IN_PORT_CONFIRMING");
+});

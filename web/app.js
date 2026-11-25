@@ -58,7 +58,7 @@ function renderDetail(d) {
       <div class="amount"><b>${usd(d.amount)}</b><span>${d.status === "released" ? "paid to supplier" : d.status === "refunded" ? "returned to buyer" : "locked in escrow"}</span></div>
     </div>
     <div class="legs">
-      <div class="leg"><div><div class="dot"></div><div class="bar"></div></div><div><small>Vessel</small><span>${esc(d.vessel)}</span>${r ? ` <span class="muted mono">· ${esc(r.verdict?.distanceKm)} km from port · ${esc(r.vessel.result.speed_knots)} kn</span>` : ""}</div></div>
+      <div class="leg"><div><div class="dot"></div><div class="bar"></div></div><div><small>Vessel</small><span>${esc(d.vessel)}</span>${r ? ` <span class="muted mono">· ${esc(r.verdict?.distanceKm)} km to release zone · ${esc(r.vessel.result.speed_knots)} kn</span>` : ""}</div></div>
       <div class="leg"><div><div class="dot" style="border-color:var(--paid)"></div></div><div><small>Port of discharge</small><span>${esc(d.portInfo?.name || d.port)} <span class="muted mono">${esc(d.portInfo?.code || "")}</span></span></div></div>
     </div>
     <div class="fields">
@@ -90,6 +90,11 @@ function renderDetail(d) {
   $("#timeline").innerHTML = events.reverse().map((e) => `<li class="ev ${e.cls}"><span class="bullet"></span><div><p>${e.text}</p><div class="meta"><span>${ago(e.at)}</span>${e.meta.map((m) => `<span>${m}</span>`).join("")}</div></div></li>`).join("");
 }
 
+function nearestZone(d, s) {
+  const zs = d.portInfo.zones || [{ lat: d.portInfo.lat, lon: d.portInfo.lon }];
+  const dd = (z) => (z.lat - s[0]) ** 2 + ((z.lon - s[1]) * Math.cos(s[0] * Math.PI / 180)) ** 2;
+  const z = zs.reduce((a, b) => (dd(b) < dd(a) ? b : a)); return [z.lat, z.lon];
+}
 function renderMap(d) {
   if (!map) {
     map = L.map("map", { zoomControl: true, attributionControl: true, worldCopyJump: true }).setView([30, 0], 2);
@@ -99,16 +104,17 @@ function renderMap(d) {
   const card = $("#mapCard");
   if (!d || !d.portInfo?.lat) { card.innerHTML = ""; return; }
   const p = [d.portInfo.lat, d.portInfo.lon];
-  portCircle = L.circle(p, { radius: d.portInfo.radiusKm * 1000, color: "#3DDC97", weight: 1.5, fillOpacity: 0.08, dashArray: "4 6" }).addTo(map).bindTooltip(`${d.portInfo.name}: release zone`);
+  portCircle = L.featureGroup((d.portInfo.zones || [{ name: d.portInfo.name, lat: p[0], lon: p[1], radiusKm: d.portInfo.radiusKm }]).map((z) =>
+    L.circle([z.lat, z.lon], { radius: z.radiusKm * 1000, color: "#3DDC97", weight: 1.5, fillOpacity: 0.08, dashArray: "4 6" }).bindTooltip(`${z.name}: release zone`))).addTo(map);
   const r = lastRound(d);
   if (r) {
     const s = [r.vessel.result.latitude, r.vessel.result.longitude];
     shipMarker = L.marker(s, { icon: L.divIcon({ className: "", html: `<div class="ship-ico"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(map).bindTooltip(`${d.vessel} · ${r.vessel.result.speed_knots} kn`);
-    routeLine = L.polyline([s, p], { color: "#7FD4F5", weight: 2, dashArray: "6 8" }).addTo(map);
-    map.fitBounds(L.latLngBounds([s, p]).pad(0.6), { maxZoom: 10 });
+    routeLine = L.polyline([s, nearestZone(d, s)], { color: "#7FD4F5", weight: 2, dashArray: "6 8" }).addTo(map);
+    map.fitBounds(L.latLngBounds([s, nearestZone(d, s)]).pad(0.8), { maxZoom: 10 });
   } else map.setView(p, 9);
   const v = r?.verdict;
-  card.innerHTML = `<div><small>Distance to port</small><b>${v?.distanceKm ?? "–"} km</b></div><div><small>Speed</small><b>${r ? r.vessel.result.speed_knots + " kn" : "–"}</b></div>
+  card.innerHTML = `<div><small>To release zone</small><b>${v?.distanceKm ?? "–"} km</b></div><div><small>Speed</small><b>${r ? r.vessel.result.speed_knots + " kn" : "–"}</b></div>
     <div><small>Last AIS fix</small><b>${r ? ago(r.vessel.result.observed_at) : "–"}</b></div><div><small>Escrow</small><b style="color:${d.status === "released" ? "var(--paid)" : "var(--hold)"}">${d.status === "released" ? "Paid" : d.status === "refunded" ? "Refunded" : "Holding"}</b></div>`;
 }
 
