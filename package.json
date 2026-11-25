@@ -1,0 +1,17 @@
+{
+  "name": "northstar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pay your supplier when the ship docks: Solana escrow released by Telegraph-verified shipment evidence",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node agent/cli.mjs"
+  },
+  "dependencies": {
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
+    "viem": "^2.57.20"
+  }
+}

@@ -1,0 +1,25 @@
+[package]
+name = "northstar"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Escrow that pays a supplier when a verified ship docks, or refunds the buyer after the deadline"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "northstar"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+custom-heap = []
+custom-panic = []
+anchor-debug = []
+
+[dependencies]
+anchor-lang = "1.2.2"
+anchor-spl = { version = "1.2.2", default-features = false, features = ["token"] }

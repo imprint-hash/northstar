@@ -1,0 +1,6 @@
+node_modules/
+program/target/
+program/Cargo.lock.bak
+data/
+*.log
+.env

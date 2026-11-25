@@ -1,0 +1,25 @@
+name: build-program
+on:
+  push:
+    paths: ["program/**", ".github/workflows/build-program.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Solana CLI (Anza stable)
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - name: Build
+        working-directory: program
+        run: |
+          solana --version
+          cargo-build-sbf --manifest-path programs/northstar/Cargo.toml --sbf-out-dir target/deploy
+          ls -la target/deploy
+          sha256sum target/deploy/northstar.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: northstar-program
+          path: program/target/deploy/northstar.so
