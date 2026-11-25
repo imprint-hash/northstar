@@ -12,6 +12,7 @@ test("ship in port but moving holds ARRIVING", () => assert.equal(judgeVoyage(de
 test("first stopped fix in port waits for confirmation", () => assert.equal(judgeVoyage(deal, fix(gw.lat, gw.lon, 0, 5)).action, "HOLD"));
 test("two stopped fixes 30+ min apart release", () => {
   const history = [{ at: ago(40), vessel: fix(gw.lat, gw.lon, 0.2, 42) }];
+  // current fix heard 3 min ago, earlier one 42 min ago: 39 min apart
   const v = judgeVoyage(deal, fix(gw.lat, gw.lon, 0, 3), null, history);
   assert.equal(v.action, "RELEASE"); assert.equal(v.code, "ARRIVED");
 });
@@ -47,3 +48,10 @@ test("second source within 5 km agrees", () => assert.equal(judgeCorroboration(f
 test("second source 40 km away conflicts", () => assert.equal(judgeCorroboration(fix(51.9, 4.0, 0, 2), { ok: true, miner: "B", result: { latitude: 52.26, longitude: 4.0, observed_at: ago(3) } }).status, "CONFLICT"));
 test("second source with nulls is unavailable, not blocking", () => assert.equal(judgeCorroboration(fix(51.9, 4.0, 0, 2), { ok: true, result: { latitude: null } }).status, "UNAVAILABLE"));
 test("second source with swapped lat/lon (lat > 90) is ignored", () => assert.equal(judgeCorroboration(fix(63.5, 20.4, 0, 2), { ok: true, result: { latitude: 120.4, longitude: 63.5 } }).status, "UNAVAILABLE"));
+
+test("the same AIS report seen on two rounds does not release (found live: MONTEVERDI, 25 Nov)", () => {
+  const sameObs = ago(33);
+  const one = { ok: true, result: { latitude: gw.lat, longitude: gw.lon, speed_knots: 0, observed_at: sameObs } };
+  const v = judgeVoyage(deal, one, null, [{ at: ago(32), vessel: one }]);
+  assert.equal(v.action, "HOLD");
+});

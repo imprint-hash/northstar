@@ -16,7 +16,7 @@ An importer paying an overseas supplier has two bad options today: pay up front 
 1. **Lock.** The buyer opens a deal: USDC moves into a program-owned vault. The program can do exactly two things with it: pay the seller fixed at opening (only on the verifier's signature, only before the deadline) or refund the buyer (anyone can trigger it, only after the deadline). Northstar cannot send it anywhere else.
 2. **Check the supplier.** Paid Telegraph asks: `CORPORATE_REGISTRY_LOOKUP_GENERAL` (registry id, active?) and `SANCTIONS_SCREENING_MATCH_GENERAL`. A sanctions match or an inactive company blocks the deal; the money stays locked and goes home at the deadline.
 3. **Watch the ship.** Every 10 minutes: `VESSEL_TELEMETRY_VERIFY_GENERAL` (pinned to Quay, asked by MMSI) and `LIVE_PORT_CONGESTION_GENERAL`. Each change of situation is written on-chain (`record_check`) with a hash of the Telegraph receipts.
-4. **Settle.** Release needs **two fresh AIS fixes at least 30 minutes apart, both showing the ship stopped inside the port's release zone**, and a second vessel source that does not disagree. Then the verifier signs `release` with the evidence hash. Otherwise: hold, and say why.
+4. **Settle.** Release needs **two different AIS reports, heard at least 30 minutes apart, both showing the ship stopped inside the port's release zone**, and a second vessel source that does not disagree. Then the verifier signs `release` with the evidence hash. Otherwise: hold, and say why.
 
 | Situation | Decision |
 |---|---|
@@ -32,12 +32,13 @@ An importer paying an overseas supplier has two bad options today: pay up front 
 
 - **Two ships called ELISE, 780 km apart.** Asking by name returned the wrong one. Deals now store the MMSI and ask by it.
 - **Hamburg's docks are 100 km up the Elbe** from the anchorage Quay counts congestion in. Ports now have berth zones (Hamburg, Shanghai Waigaoqiao, Houston) as well as anchorage zones.
+- **The same AIS report counted twice.** The first live payout (MONTEVERDI, Antwerp, 25 Nov) released after the ship had stopped transmitting: one report, seen on two rounds 30 min apart. The ship was stopped in port, but the rule promised two reports; it now compares the reports' own timestamps (regression test added).
 - **Telegraph trims answers to the intent's schema** (no `nav_status`), so "moored" can't be read; arrival is "stopped inside the zone on two fixes 30+ minutes apart" instead.
 
 ## Proof
 
 - [`docs/e2e-devnet.json`](docs/e2e-devnet.json), live on devnet: open → record check → **a stranger's release refused** → verifier release (seller +120) · **refund before the deadline refused** → **release after the deadline refused** → refund (buyer +50).
-- `npm test`: 19 decision tests (arrival rule, stale fixes, dark ships, unknown ports, sanctions, second-source agreement and conflict, swapped coordinates).
+- `npm test`: 20 decision tests (arrival rule, stale fixes, dark ships, unknown ports, sanctions, second-source agreement and conflict, swapped coordinates).
 - Every round on the live site shows the Telegraph receipt for each answer and the Solana transaction for each on-chain record.
 
 ## Telegraph purchases

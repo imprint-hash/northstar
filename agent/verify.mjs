@@ -77,10 +77,13 @@ export function judgeVoyage(deal, vessel, port, history = []) {
   if (!p.inPort) return { ...base, action: "HOLD", code: "AT_SEA", text: `${name} is ${p.distanceKm} km from the ${dest.names[0]} release zone, ${p.speed ?? "?"} kn.${portNote}` };
   if (!p.stopped) return { ...base, action: "HOLD", code: "ARRIVING", text: `${name} is inside ${dest.names[0]} and still moving (${p.speed} kn).${portNote}` };
   if (p.ageMinutes > FRESH_MIN) return { ...base, action: "HOLD", code: "STALE_FIX", text: `${name} was stopped at ${dest.names[0]}, but that fix is ${p.ageMinutes} min old. Waiting for a fresh one.` };
+  // The earlier fix must be a different AIS report, heard at least 30 min before the current one
+  // (not the same report seen again on a later round: a ship that stops transmitting proves nothing).
+  const nowObs = Date.parse(p.observedAt);
   const earlier = history.map((h) => ({ at: Date.parse(h.at), p: position(deal, h.vessel) }))
-    .find((h) => h.p && h.p.inPort && h.p.stopped && h.p.ageMinutes <= FRESH_MIN + (Date.now() - h.at) / 60000 && Date.now() - h.at >= CONFIRM_MIN * 60000);
+    .find((h) => h.p && h.p.inPort && h.p.stopped && nowObs - Date.parse(h.p.observedAt) >= CONFIRM_MIN * 60000);
   if (!earlier) return { ...base, action: "HOLD", code: "IN_PORT_CONFIRMING", text: `${name} is stopped inside ${p.zone}. Confirming with a second fix in ${CONFIRM_MIN} min before paying.${portNote}` };
-  return { ...base, action: "RELEASE", code: "ARRIVED", text: `${name} has been stopped inside ${p.zone} for at least ${Math.round((Date.now() - earlier.at) / 60000)} min (latest fix ${p.ageMinutes} min old). Paying the supplier.` };
+  return { ...base, action: "RELEASE", code: "ARRIVED", text: `${name} has been stopped inside ${p.zone} on two AIS reports ${Math.round((nowObs - Date.parse(earlier.p.observedAt)) / 60000)} min apart (latest ${p.ageMinutes} min old). Paying the supplier.` };
 }
 
 // Second opinion before paying: another Telegraph miner's fix for the same ship. Most vessel miners
