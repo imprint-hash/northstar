@@ -1,0 +1,28 @@
+{
+ "open": "https://explorer.solana.com/tx/M7izKcXdk5BSDYT52snc7AUZaw2kE3GRQGCkWwJCAqP8UovcAoQ8nwj2kjXMzRSQQ79z7z3dJw8f51FNBfUoAAV?cluster=devnet",
+ "check": "https://explorer.solana.com/tx/4wvdnm7RuocvhMdZ6n7hwEhwHTsYKMmPQ1im7MgLeSGj2scbd8xzDiqLK6GeGFn1ghRcReBbGP2vCwZ5nu3hZgZ6?cluster=devnet",
+ "strangerRelease": "refused",
+ "release": "https://explorer.solana.com/tx/5UnHUvnPx9s1zB4PMLGLHFcfnThdtxVMGRKKpUEKmSEg9LUeB5hLvbs3VR7mEM3d1sS9EpGCzfvzHwYvR83gt3Fm?cluster=devnet",
+ "sellerGot": 120,
+ "dealA": {
+  "address": "H2SetRJaZ5qHpivnwuh4dC5YM9ti4T44xwpkDBdxUasa",
+  "buyer": "HC1yarEfZvLBqwCFaT5pkL74LgKpqvvc4jWWLZRNyTVB",
+  "seller": "9dKaXRurqhGsXyaHH9eXib4gzU1ZxResL4MdQqbJjU12",
+  "verifier": "5TBWH4Wb5eWzTEES8JqEa27yTsgfDCxXMHcqxC5kiA8H",
+  "mint": "4ZBpssAvedW7tivWTo1K4mcuE816YgUuZmiMCohSWEk6",
+  "dealId": 1795603755375,
+  "amount": 120000000,
+  "deadline": 1795862955,
+  "vessel": "HULDA MAERSK",
+  "port": "London Gateway",
+  "status": "released",
+  "checks": 2,
+  "lastCode": 1,
+  "evidence": "d261037f90b3750e2862ae8ce2a827b9fabd9596fce70cad95241b4c5bcd1851"
+ },
+ "earlyRefund": "refused (before deadline)",
+ "lateRelease": "refused (after deadline)",
+ "refund": "https://explorer.solana.com/tx/5UEpeoxRiggbaDN5gwT3LTiwd46n2s12NGCJV5jyvymtA9aSdz7YuDHRsWao1NXvVTn77DtfYUy5tKjgjroMKeN9?cluster=devnet",
+ "buyerGotBack": 50,
+ "dealB": "refunded"
+}

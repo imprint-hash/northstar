@@ -54,8 +54,8 @@ export async function recordCheck(d, code, evidence) {
   return send([ix], [verifier]);
 }
 
-export async function release(d, evidence) {
-  const verifier = keypair("verifier");
+export async function release(d, evidence, signer = null) {
+  const verifier = signer || keypair("verifier");
   const sellerToken = await getOrCreateAssociatedTokenAccount(conn, verifier, new PublicKey(d.mint), new PublicKey(d.seller));
   const ix = new TransactionInstruction({ programId: PROGRAM_ID, data: Buffer.concat([disc("release"), Buffer.from(evidence)]), keys: [
     meta(verifier.publicKey, true, false), meta(new PublicKey(d.address), false, true), meta(vaultPda(d.address), false, true),
