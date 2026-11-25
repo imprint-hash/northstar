@@ -1,0 +1,6 @@
+[
+ {"name": "Tesco PLC", "country": "United Kingdom", "commodity": "Grocery private-label goods", "amount": 4800},
+ {"name": "Flutterwave Inc", "country": "United States", "commodity": "POS terminals", "amount": 2600},
+ {"name": "Unilever PLC", "country": "United Kingdom", "commodity": "Household goods", "amount": 7200},
+ {"name": "Shopify Inc", "country": "Canada", "commodity": "Retail hardware", "amount": 3900}
+]

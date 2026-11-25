@@ -13,6 +13,14 @@ export async function tick(log = console.log) {
   const db = load();
   for (const deal of db.deals.filter((d) => d.status === "open")) {
     deal.rounds ||= [];
+    // Past the deadline and never released: the buyer's money goes back (anyone may trigger this).
+    if (Date.parse(deal.deadline) <= Date.now()) {
+      const tx = await chain.refund(deal, chain.keypair("verifier")).catch((e) => ({ error: e.message }));
+      if (!tx.error) { deal.status = "refunded"; deal.state = "REFUNDED"; deal.refundTx = tx; }
+      deal.events = [...(deal.events || []), { at: new Date().toISOString(), kind: "refund", tx }];
+      log(`[${deal.id}] deadline passed: refund ${tx.error ? "failed: " + tx.error : tx.signature}`);
+      save(db); continue;
+    }
     if (!deal.supplierCheck) {
       deal.supplierCheck = await checkSupplier(deal);
       log(`[${deal.id}] supplier: ${deal.supplierCheck.verdict.ok ? "ok" : "BLOCKED"} ${deal.supplierCheck.verdict.flags.map((f) => f.code).join(",")}`);

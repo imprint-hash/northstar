@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Northstar</title>
+<meta name="description" content="Pay your supplier when the ship docks. Money held in a Solana escrow, released only when Telegraph's miners confirm the vessel is in port.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#"><img src="logo.svg" alt=""><span>Northstar</span></a>
+  <nav><a href="#app">Deals</a><a href="#how">How it works</a><a href="https://github.com/imprint-hash/quay" target="_blank" rel="noopener">Quay miner</a></nav>
+  <span class="chain-pill"><i></i>Solana devnet</span>
+</header>
+
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Trade payments · Telegraph × Solana</p>
+    <h1>Pay your supplier<br>when the ship <em>docks</em>.</h1>
+    <p class="lede">You lock the payment in a Solana escrow. Northstar checks the supplier, then watches the real ship from live AIS radio. The money moves only when the vessel is stopped in the destination port, and comes back to you if it never arrives.</p>
+    <div class="hero-actions">
+      <button class="btn primary" id="demoBtn">Open a live demo deal</button>
+      <a class="btn ghost" href="#app">Watch the deals</a>
+    </div>
+    <p class="demo-note" id="demoNote" role="status"></p>
+    <dl class="stats">
+      <div><dt>Deals paid on arrival</dt><dd id="stPaid">–</dd></div>
+      <div><dt>Held in escrow now</dt><dd id="stHeld">–</dd></div>
+      <div><dt>Telegraph checks bought</dt><dd id="stChecks">–</dd></div>
+    </dl>
+  </div>
+  <div class="hero-star" aria-hidden="true">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="glow"></div>
+    <img class="star" src="logo.svg" alt="">
+    <span class="tag t1">supplier verified</span><span class="tag t2">vessel in port</span><span class="tag t3">paid on arrival</span>
+  </div>
+</section>
+
+<main id="app" class="app">
+  <aside class="list">
+    <div class="list-head"><h2>Deals</h2><span class="muted mono" id="tick"></span></div>
+    <div id="deals" class="deals"><p class="empty">Loading deals…</p></div>
+  </aside>
+
+  <section class="detail" id="detail">
+    <div class="steps" id="steps"></div>
+    <div class="bl" id="bl"></div>
+    <div class="timeline-head"><h3>Checks</h3><span class="muted">each one a paid Telegraph ask, each change written on-chain</span></div>
+    <ol class="timeline" id="timeline"></ol>
+  </section>
+
+  <section class="mapwrap">
+    <div id="map"></div>
+    <div class="map-card" id="mapCard"></div>
+  </section>
+</main>
+
+<section class="how" id="how">
+  <h2>How Northstar decides</h2>
+  <div class="how-grid">
+    <article><span class="n">Lock</span><h3>The buyer funds the escrow</h3><p>USDC goes into a Solana program account tied to one ship, one port and a deadline. The program can pay only the supplier named at opening, or refund the buyer after the deadline. Nobody else can move it, Northstar included.</p></article>
+    <article><span class="n">Check</span><h3>Telegraph's miners answer, for a fee</h3><p>Before the voyage: company registry and sanctions screening. During it: the ship's live position from <a href="https://github.com/imprint-hash/quay" target="_blank" rel="noopener">Quay</a> and the port's congestion. Every answer is a paid machine-to-machine purchase with a Telegraph receipt.</p></article>
+    <article><span class="n">Settle</span><h3>Two fixes in port, then pay</h3><p>The ship must be stopped inside the destination port area on two fresh fixes at least 30 minutes apart. Then Northstar's verifier signs the release, with a hash of the receipts as evidence. A ship that goes dark or never arrives: the money stays put, then goes home.</p></article>
+  </div>
+  <p class="fine">Demo deals use a devnet test token and real ships chosen as they approach a port. Program <a class="mono" id="progLink" target="_blank" rel="noopener"></a></p>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
