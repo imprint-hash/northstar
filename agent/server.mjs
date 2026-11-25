@@ -27,7 +27,7 @@ function send(res, code, body, type = "application/json") {
 
 // What the page needs: no keys, no raw Telegraph payment headers.
 function publicDeal(d) {
-  return { id: d.id, address: d.address, status: d.status, state: d.state, vessel: d.vessel, port: d.port, supplier: d.supplier, supplierCountry: d.supplierCountry,
+  return { id: d.id, address: d.address, status: d.status, state: d.state, vessel: d.vessel, mmsi: d.mmsi || null, port: d.port, supplier: d.supplier, supplierCountry: d.supplierCountry,
     commodity: d.commodity, amount: d.amount, createdAt: d.createdAt, deadline: d.deadline, openTx: d.openTx, explorer: explorer(""), dealUrl: `https://explorer.solana.com/address/${d.address}?cluster=devnet`, releaseTx: d.releaseTx, releasedAt: d.releasedAt,
     origin: d.origin, demo: !!d.demo, portInfo: (({ code, names, lat, lon, radiusKm, zones }) => ({ code, name: names[0], lat, lon, radiusKm, zones }))(findPort(d.port) || { names: [d.port] }), refundTx: d.refundTx, events: d.events,
     supplierCheck: d.supplierCheck && { at: d.supplierCheck.at, verdict: d.supplierCheck.verdict,

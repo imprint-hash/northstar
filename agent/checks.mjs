@@ -19,7 +19,8 @@ export async function checkSupplier(deal) {
 }
 
 export async function checkVoyage(deal, history = []) {
-  const vessel = await ask("VESSEL_TELEMETRY_VERIFY_GENERAL", { vessel: deal.vessel }, { miner: QUAY });
+  // Ask by MMSI when known: ship names are not unique (two ships called ELISE were 780 km apart).
+  const vessel = await ask("VESSEL_TELEMETRY_VERIFY_GENERAL", { vessel: deal.mmsi ? String(deal.mmsi) : deal.vessel }, { miner: QUAY });
   const port = await ask("LIVE_PORT_CONGESTION_GENERAL", { port: deal.port }, { miner: QUAY });
   return { at: new Date().toISOString(), kind: "voyage", vessel, port, verdict: judgeVoyage(deal, vessel, port, history) };
 }
