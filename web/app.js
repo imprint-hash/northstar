@@ -71,7 +71,7 @@ function renderDetail(d) {
     <div class="fields">
       <div><small>Supplier</small><span>${esc(co?.legalName || d.supplier)}</span></div>
       <div><small>Registry</small><span>${co ? `${esc(co.registrationId)} · ${esc(co.jurisdiction)} · ${co.active ? "active" : "inactive"}` : sc ? "no record returned" : "checking…"}</span></div>
-      <div><small>Sanctions</small><span>${sc ? (sc.flags.some((f) => f.code === "SANCTIONS_MATCH") ? "MATCH: blocked" : sc.sanctionsClear ? "clear" : "no clear answer") : "checking…"}</span></div>
+      <div><small>Sanctions</small><span>${sc ? (sc.flags.some((f) => /SANCTIONS_MATCH|OFAC_SDN_MATCH|VESSEL_SANCTIONED/.test(f.code)) ? "MATCH: blocked" : sc.sanctionsClear ? (sc.ofacChecked ? "clear (miner + OFAC list)" : "clear") : "no clear answer") : "checking…"}</span></div>
       <div><small>Deadline (refund after)</small><span>${new Date(d.deadline).toUTCString().slice(5, 22)} UTC</span></div>
       <div><small>Status</small><span>${esc(LABEL[d.state] || d.state)}</span></div>
       <div><small>Buyer protected</small><span>${d.status === "released" ? `${usd(d.amount)} released only after arrival was verified` : d.status === "refunded" ? `${usd(d.amount)} returned: the ship never arrived` : `${usd(d.amount)} cannot move until the ship is verified in port`}</span></div>
@@ -85,6 +85,7 @@ function renderDetail(d) {
   if (d.supplierCheck) {
     const v = d.supplierCheck.verdict;
     const m = [d.supplierCheck.registry, d.supplierCheck.sanctions].filter(Boolean).map((a) => `${esc(a.miner || "miner")}${a.receipt ? ` · receipt ${esc(short(a.receipt, 6))}` : ""}`);
+    if (d.supplierCheck.ofac) m.push(`US Treasury OFAC SDN list${d.supplierCheck.ofac.listDate ? ` (${esc(d.supplierCheck.ofac.listDate)})` : ""}: supplier ${d.supplierCheck.ofac.matched ? "LISTED" : "not listed"}${d.supplierCheck.ofacVessel?.mmsi ? `, ship ${d.supplierCheck.ofacVessel.matched ? "LISTED" : "not listed"}` : ""}`);
     events.push({ cls: v.ok ? "ok" : "bad", at: d.supplierCheck.at, text: v.ok ? `Supplier checked: <b>${esc(v.company?.legalName || d.supplier)}</b>${v.company ? ` (${esc(v.company.registrationId)})` : ""} ${v.sanctionsClear ? "is not on sanctions lists." : ""}${v.flags.length ? ` ${v.flags.map((f) => esc(f.text)).join(" ")}` : ""}` : `Supplier blocked: ${v.flags.filter((f) => f.level === "block").map((f) => esc(f.text)).join(" ")} The money stays locked and goes back to the buyer at the deadline.`, meta: m });
   }
   for (const r of d.rounds || []) {

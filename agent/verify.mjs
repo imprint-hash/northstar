@@ -35,7 +35,7 @@ export function km(a, b, c, d) {
 
 // Supplier checks at the start of a deal (company registry + sanctions screening).
 // A missing answer is a warning; only a positive finding (not registered, inactive, sanctioned) blocks.
-export function judgeSupplier(registry, sanctions) {
+export function judgeSupplier(registry, sanctions, ofac = null, ofacVessel = null) {
   const flags = [];
   const reg = registry?.result || {};
   if (!registry?.ok) flags.push({ level: "warn", code: "REGISTRY_UNAVAILABLE", text: "The company registry check did not answer." });
@@ -44,8 +44,14 @@ export function judgeSupplier(registry, sanctions) {
   const san = sanctions?.result || {};
   if (!sanctions?.ok || san.matched == null) flags.push({ level: "warn", code: "SANCTIONS_UNAVAILABLE", text: "Sanctions screening gave no clear answer." });
   else if (san.matched === true) flags.push({ level: "block", code: "SANCTIONS_MATCH", text: `Sanctions match: ${(san.matches || []).join(", ") || san.name}.` });
+  // Official OFAC SDN list as a second opinion: a listed name blocks even if the miner cleared it.
+  const listed = (ofac?.matches || []).map((m) => m.name);
+  if (ofac?.matched) flags.push({ level: "block", code: "OFAC_SDN_MATCH", text: `On the US Treasury OFAC SDN list: ${listed.join(", ")} (${ofac.matches[0].program}).` });
+  else if (ofac?.possible) flags.push({ level: "warn", code: "OFAC_POSSIBLE", text: `Short name resembles an OFAC SDN entry (${listed.join(", ")}); review by hand.` });
+  if (ofac?.matched && sanctions?.ok && san.matched === false) flags.push({ level: "warn", code: "SANCTIONS_SOURCES_DISAGREE", text: "The Telegraph sanctions miner cleared this name, but the official OFAC list has it." });
+  if (ofacVessel?.matched) flags.push({ level: "block", code: "VESSEL_SANCTIONED", text: `The ship (MMSI ${ofacVessel.mmsi}) is on the OFAC SDN list as ${ofacVessel.match.name} (${ofacVessel.match.program}).` });
   const found = registry?.ok && reg.registration_id ? { legalName: reg.legal_name, registrationId: reg.registration_id, jurisdiction: reg.jurisdiction, active: reg.active, incorporated: reg.incorporated } : null;
-  return { ok: !flags.some((f) => f.level === "block"), company: found, sanctionsClear: san.matched === false, flags };
+  return { ok: !flags.some((f) => f.level === "block"), company: found, sanctionsClear: san.matched === false && !ofac?.matched && !ofacVessel?.matched, ofacChecked: !!ofac, flags };
 }
 
 const STOPPED_KN = 1, FRESH_MIN = 60, CONFIRM_MIN = 30, DARK_MIN = 360;

@@ -14,7 +14,7 @@ An importer paying an overseas supplier has two bad options today: pay up front 
 ## How a deal runs
 
 1. **Lock.** The buyer opens a deal: USDC moves into a program-owned vault. The program can do exactly two things with it: pay the seller fixed at opening (only on the verifier's signature, only before the deadline) or refund the buyer (anyone can trigger it, only after the deadline). Northstar cannot send it anywhere else.
-2. **Check the supplier.** Paid Telegraph asks: `CORPORATE_REGISTRY_LOOKUP_GENERAL` (registry id, active?) and `SANCTIONS_SCREENING_MATCH_GENERAL`. A sanctions match or an inactive company blocks the deal; the money stays locked and goes home at the deadline.
+2. **Check the supplier and the ship.** Paid Telegraph asks: `CORPORATE_REGISTRY_LOOKUP_GENERAL` (registry id, active?) and `SANCTIONS_SCREENING_MATCH_GENERAL`, plus a second opinion from the **US Treasury OFAC SDN list itself** (downloaded daily, ~19,600 entries): the supplier by name, and **the ship by MMSI** (838 sanctioned ships carry one). A match on either source, or an inactive company, blocks the deal; the money stays locked and goes home at the deadline.
 3. **Watch the ship.** Every 10 minutes: `VESSEL_TELEMETRY_VERIFY_GENERAL` (pinned to Quay, asked by MMSI) and `LIVE_PORT_CONGESTION_GENERAL`. Each change of situation is written on-chain (`record_check`) with a hash of the Telegraph receipts.
 4. **Settle.** Release needs **two different AIS reports, heard at least 30 minutes apart, both showing the ship stopped inside the port's release zone**, and a second vessel source that does not disagree. Then the verifier signs `release` with the evidence hash. Otherwise: hold, and say why.
 
@@ -25,7 +25,9 @@ An importer paying an overseas supplier has two bad options today: pay up front 
 | Fix older than 60 min | `HOLD` (`STALE_FIX`) |
 | Not heard for 6 h | `HOLD` (`DARK`): a ship that goes dark is a risk signal |
 | Second source puts the ship 5+ km away | `HOLD` (`SOURCES_CONFLICT`) |
-| Supplier sanctioned / inactive | blocked; refund at the deadline |
+| Supplier sanctioned (miner **or** OFAC list) / inactive | blocked; refund at the deadline |
+| Ship itself on the OFAC list (by MMSI) | blocked (`VESSEL_SANCTIONED`) |
+| Miner says clear, OFAC lists the name | blocked, and `SANCTIONS_SOURCES_DISAGREE` is shown |
 | Two stopped fixes in port, sources agree | `RELEASE` → supplier paid |
 
 ## Problems met on real ships, and the fix
@@ -33,12 +35,13 @@ An importer paying an overseas supplier has two bad options today: pay up front 
 - **Two ships called ELISE, 780 km apart.** Asking by name returned the wrong one. Deals now store the MMSI and ask by it.
 - **Hamburg's docks are 100 km up the Elbe** from the anchorage Quay counts congestion in. Ports now have berth zones (Hamburg, Shanghai Waigaoqiao, Houston) as well as anchorage zones.
 - **The same AIS report counted twice.** The first live payout (MONTEVERDI, Antwerp, 25 Nov) released after the ship had stopped transmitting: one report, seen on two rounds 30 min apart. The ship was stopped in port, but the rule promised two reports; it now compares the reports' own timestamps (regression test added).
+- **A sanctions miner cleared a listed company.** Asked about "PAO Sovcomflot" (written word for word as an alias on the OFAC SDN list), the Telegraph sanctions miner answered `matched: false`; it also matched "Garantex" to a different company, "GARANT-SV". Northstar now checks the official OFAC list too and blocks if either source lists the name. Live run: [`docs/sanctions-second-opinion.json`](docs/sanctions-second-opinion.json).
 - **Telegraph trims answers to the intent's schema** (no `nav_status`), so "moored" can't be read; arrival is "stopped inside the zone on two fixes 30+ minutes apart" instead.
 
 ## Proof
 
 - [`docs/e2e-devnet.json`](docs/e2e-devnet.json), live on devnet: open → record check → **a stranger's release refused** → verifier release (seller +120) · **refund before the deadline refused** → **release after the deadline refused** → refund (buyer +50).
-- `npm test`: 20 decision tests (arrival rule, stale fixes, dark ships, unknown ports, sanctions, second-source agreement and conflict, swapped coordinates).
+- `npm test`: 28 tests, including 8 on real OFAC rows (Sovcomflot under its PAO alias, Garantex by alias, a sanctioned tanker by MMSI). Decision tests (arrival rule, stale fixes, dark ships, unknown ports, sanctions, second-source agreement and conflict, swapped coordinates).
 - Every round on the live site shows the Telegraph receipt for each answer and the Solana transaction for each on-chain record.
 
 ## Telegraph purchases

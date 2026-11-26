@@ -31,7 +31,9 @@ function publicDeal(d) {
     commodity: d.commodity, amount: d.amount, createdAt: d.createdAt, deadline: d.deadline, openTx: d.openTx, explorer: explorer(""), dealUrl: `https://explorer.solana.com/address/${d.address}?cluster=devnet`, releaseTx: d.releaseTx, releasedAt: d.releasedAt,
     origin: d.origin, demo: !!d.demo, portInfo: (({ code, names, lat, lon, radiusKm, zones }) => ({ code, name: names[0], lat, lon, radiusKm, zones }))(findPort(d.port) || { names: [d.port] }), refundTx: d.refundTx, events: d.events,
     supplierCheck: d.supplierCheck && { at: d.supplierCheck.at, verdict: d.supplierCheck.verdict,
-      registry: pick(d.supplierCheck.registry), sanctions: pick(d.supplierCheck.sanctions) },
+      registry: pick(d.supplierCheck.registry), sanctions: pick(d.supplierCheck.sanctions),
+      ofac: d.supplierCheck.ofac && { matched: d.supplierCheck.ofac.matched, listDate: d.supplierCheck.ofac.listDate, matches: d.supplierCheck.ofac.matches },
+      ofacVessel: d.supplierCheck.ofacVessel && { matched: d.supplierCheck.ofacVessel.matched, mmsi: d.supplierCheck.ofacVessel.mmsi, match: d.supplierCheck.ofacVessel.match } },
     rounds: (d.rounds || []).map((r) => ({ at: r.at, verdict: r.verdict, evidence: r.evidence, tx: r.tx?.signature ? { signature: r.tx.signature, url: explorer(r.tx.signature) } : r.tx?.error ? { error: r.tx.error } : null,
       vessel: pick(r.vessel), port: pick(r.port), second: pick(r.second), corroboration: r.corroboration || null })) };
 }

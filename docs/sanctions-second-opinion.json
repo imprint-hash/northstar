@@ -1,0 +1,132 @@
+{
+ "at": "2026-11-26T10:54:51.040Z",
+ "note": "Live run: Telegraph sanctions miner vs the US Treasury OFAC SDN list",
+ "runs": [
+  {
+   "deal": {
+    "supplier": "PAO Sovcomflot",
+    "supplierCountry": "RU",
+    "mmsi": "367770980"
+   },
+   "sanctionsMiner": {
+    "ok": true,
+    "miner": "ChainSight — Universal Intelligence & Data Oracle",
+    "result": {
+     "name": "PAO Sovcomflot",
+     "matched": false,
+     "matches": null,
+     "lists": [
+      "OFAC SDN"
+     ],
+     "match_score": null
+    },
+    "receipt": "0x50e9e1daffc1526786e02f550b9646a7b64ad325e2b5b4485d4889b392121ae9"
+   },
+   "ofac": {
+    "source": "OFAC SDN (US Treasury)",
+    "listDate": "2026-11-26",
+    "query": "PAO Sovcomflot",
+    "matched": true,
+    "possible": false,
+    "matches": [
+     {
+      "uid": "34741",
+      "name": "JOINT STOCK COMPANY SOVCOMFLOT",
+      "alias": "JSC SOVCOMFLOT",
+      "program": "UKRAINE-EO13662 RUSSIA-EO14024"
+     }
+    ]
+   },
+   "ofacVessel": {
+    "source": "OFAC SDN (US Treasury)",
+    "listDate": "2026-11-26",
+    "mmsi": "367770980",
+    "matched": false,
+    "match": null
+   },
+   "verdict": {
+    "ok": false,
+    "company": {
+     "legalName": "PAO SCF",
+     "registrationId": "1027739028712",
+     "jurisdiction": "RU",
+     "active": true,
+     "incorporated": "1995-12-17"
+    },
+    "sanctionsClear": false,
+    "ofacChecked": true,
+    "flags": [
+     {
+      "level": "block",
+      "code": "OFAC_SDN_MATCH",
+      "text": "On the US Treasury OFAC SDN list: JOINT STOCK COMPANY SOVCOMFLOT (UKRAINE-EO13662 RUSSIA-EO14024)."
+     },
+     {
+      "level": "warn",
+      "code": "SANCTIONS_SOURCES_DISAGREE",
+      "text": "The Telegraph sanctions miner cleared this name, but the official OFAC list has it."
+     }
+    ]
+   }
+  },
+  {
+   "deal": {
+    "supplier": "Tesco PLC",
+    "supplierCountry": "GB",
+    "mmsi": "572469210"
+   },
+   "sanctionsMiner": {
+    "ok": true,
+    "miner": "ChainSight — Universal Intelligence & Data Oracle",
+    "result": {
+     "name": "Tesco PLC",
+     "matched": false,
+     "matches": null,
+     "lists": [
+      "OFAC SDN"
+     ],
+     "match_score": null
+    },
+    "receipt": "0x80c1a82703cf09ece006e1a43a49d11a28606571ab164e8a4d474a9a39f3b59c"
+   },
+   "ofac": {
+    "source": "OFAC SDN (US Treasury)",
+    "listDate": "2026-11-26",
+    "query": "Tesco PLC",
+    "matched": false,
+    "possible": false,
+    "matches": []
+   },
+   "ofacVessel": {
+    "source": "OFAC SDN (US Treasury)",
+    "listDate": "2026-11-26",
+    "mmsi": "572469210",
+    "matched": true,
+    "match": {
+     "uid": "15036",
+     "name": "ARTAVIL",
+     "program": "IRAN"
+    }
+   },
+   "verdict": {
+    "ok": false,
+    "company": {
+     "legalName": "TESCO PLC",
+     "registrationId": "00445790",
+     "jurisdiction": "GB",
+     "active": true,
+     "incorporated": "1947-11-27"
+    },
+    "sanctionsClear": false,
+    "ofacChecked": true,
+    "flags": [
+     {
+      "level": "block",
+      "code": "VESSEL_SANCTIONED",
+      "text": "The ship (MMSI 572469210) is on the OFAC SDN list as ARTAVIL (IRAN)."
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -9,13 +9,17 @@ async function pinnedOrRouted(intent, params, miner) {
   return r.ok ? r : ask(intent, params);
 }
 import { judgeSupplier, judgeVoyage, judgeCorroboration } from "./verify.mjs";
+import { loadOfac, screenName, screenVessel } from "./ofac.mjs";
 
 export async function checkSupplier(deal) {
   const [registry, sanctions] = await Promise.all([
     pinnedOrRouted("CORPORATE_REGISTRY_LOOKUP_GENERAL", { company: deal.supplier, jurisdiction: deal.supplierCountry }, REGISTRY_MINER),
     pinnedOrRouted("SANCTIONS_SCREENING_MATCH_GENERAL", { name: deal.supplier }, SANCTIONS_MINER),
   ]);
-  return { at: new Date().toISOString(), kind: "supplier", registry, sanctions, verdict: judgeSupplier(registry, sanctions) };
+  // Second opinion from the official US list, for the supplier and for the ship itself (by MMSI).
+  let ofac = null, ofacVessel = null;
+  try { const index = await loadOfac(); if (index) { ofac = screenName(index, deal.supplier); ofacVessel = screenVessel(index, deal.mmsi); } } catch {}
+  return { at: new Date().toISOString(), kind: "supplier", registry, sanctions, ofac, ofacVessel, verdict: judgeSupplier(registry, sanctions, ofac, ofacVessel) };
 }
 
 export async function checkVoyage(deal, history = []) {
