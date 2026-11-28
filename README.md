@@ -6,7 +6,7 @@
 
 An importer paying an overseas supplier has two bad options today: pay up front and trust, or pay a bank for a letter of credit and wait 30–60 days of paperwork. Northstar is the third option. The buyer's USDC sits in a **Solana escrow** tied to one ship, one port and a deadline. Northstar checks the supplier, then watches the real ship from live AIS radio through **Telegraph**. The money moves to the supplier only when the vessel is verified stopped in the destination port, and goes back to the buyer if it never arrives.
 
-- **Live:** https://northstar.16-192-237-212.sslip.io (press *Open a live demo deal*: it picks a real cargo ship about to reach a port)
+- **Live:** https://northstar.16-192-237-212.sslip.io. Press *Open a live demo deal* (Northstar picks a real cargo ship about to reach a port), or use **Create your own deal**: pick a port Quay can see, choose a cargo ship heading there right now, name your supplier and lock the payment (test USDC on devnet).
 - **Escrow program (Solana devnet):** [`AQUt6WJcig7EFaq5rJsCYZze2onSRmFitte8yzdnsKgc`](https://explorer.solana.com/address/AQUt6WJcig7EFaq5rJsCYZze2onSRmFitte8yzdnsKgc?cluster=devnet)
 - **Ship intelligence:** [Quay](https://github.com/imprint-hash/quay), our Telegraph miner (rank 1 on `LIVE_PORT_CONGESTION`)
 - **Telegraph Season II:** Mission 08 Commodities, route 2 (cargo and counterparty provenance, settled). Apps & Agents track.
