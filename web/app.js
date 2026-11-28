@@ -34,7 +34,7 @@ function renderList() {
     const total = d.origin?.distanceKm || dist || 1;
     const pct = d.status === "released" ? 100 : Math.max(4, Math.min(96, 100 - ((dist ?? total) / total) * 100));
     return `<button class="deal ${d.id === selected ? "active" : ""}" data-id="${esc(d.id)}">
-      <div class="row1"><span class="vessel">${esc(d.vessel)}</span>${pillFor(d)}</div>
+      <div class="row1"><span class="vessel">${esc(d.vessel)}${d.custom ? `<span class="tag-you">VISITOR</span>` : ""}</span>${pillFor(d)}</div>
       <div class="route"><span>AT SEA</span><span class="track"><b style="left:calc(${pct}% - 5px)"></b></span><span>${esc(d.portInfo?.code || d.port)}</span></div>
       <div class="row3"><span>${esc(d.supplier)}</span><span>${usd(d.amount)}</span></div>
     </button>`;
@@ -207,5 +207,47 @@ $("#demoBtn").addEventListener("click", async () => {
   } catch { n.textContent = "Could not reach the agent."; }
   b.disabled = false;
 });
+
+// ---------- Create your own deal ----------
+let pickedShip = null;
+async function loadPorts() {
+  const sel = $("#fPort");
+  try {
+    const { ports } = await (await fetch("api/ports")).json();
+    sel.innerHTML = `<option value="">Choose a port (${ports.length} with ships inbound now)</option>` + ports.map((p) => `<option value="${esc(p.code)}">${esc(p.name)} · ${p.inbound} inbound</option>`).join("");
+  } catch { sel.innerHTML = `<option value="">Could not load ports</option>`; }
+}
+$("#fPort").addEventListener("change", async (e) => {
+  pickedShip = null; const box = $("#fShips");
+  if (!e.target.value) { box.innerHTML = `<p class="muted small">Choose a port to see the cargo ships heading there now.</p>`; return; }
+  box.innerHTML = `<p class="muted small">Asking Quay which cargo ships are heading there…</p>`;
+  try {
+    const { ships } = await (await fetch(`api/inbound?port=${encodeURIComponent(e.target.value)}`)).json();
+    box.innerHTML = ships.length ? ships.map((x) => `<button type="button" class="ship" aria-pressed="false" data-mmsi="${esc(x.mmsi)}"><b>${esc(x.name)}</b><span>MMSI ${esc(x.mmsi)}</span><span>${Math.round(x.distanceKm)} km out · about ${x.hoursToPort} h to port</span></button>`).join("")
+      : `<p class="muted small">No cargo ship is heading there right now. Try another port.</p>`;
+  } catch { box.innerHTML = `<p class="muted small">Could not reach Quay. Try again.</p>`; }
+});
+$("#fShips").addEventListener("click", (e) => {
+  const b = e.target.closest(".ship"); if (!b) return;
+  $("#fShips").querySelectorAll(".ship").forEach((x) => x.setAttribute("aria-pressed", "false"));
+  b.setAttribute("aria-pressed", "true"); pickedShip = b.dataset.mmsi;
+});
+$("#dealForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const n = $("#fNote"), b = $("#fSubmit");
+  const body = { port: $("#fPort").value, mmsi: pickedShip, supplier: $("#fSupplier").value, country: $("#fCountry").value, commodity: $("#fGoods").value, amount: $("#fAmount").value };
+  if (!body.port) return (n.textContent = "Choose a destination port.");
+  if (!body.mmsi) return (n.textContent = "Choose the ship carrying your goods.");
+  if (body.supplier.trim().length < 2) return (n.textContent = "Enter the supplier's company name.");
+  b.disabled = true; n.textContent = "Locking test USDC in the Solana escrow…";
+  try {
+    const r = await fetch("api/deal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) n.textContent = j.error || "Could not open the deal.";
+    else { n.innerHTML = `Locked: ${usd(j.amount)} for ${esc(j.vessel)} → ${esc(j.port)}. <a href="${esc(j.openTx.url)}" target="_blank" rel="noopener">See it on Solana</a>. Supplier checks start now.`; selected = j.id; await load(); setTimeout(() => (location.hash = "app"), 1800); }
+  } catch { n.textContent = "Could not reach the agent."; }
+  b.disabled = false;
+});
+loadPorts();
 
 load(); setInterval(load, 20000);

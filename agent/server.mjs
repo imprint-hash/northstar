@@ -29,7 +29,7 @@ function send(res, code, body, type = "application/json") {
 function publicDeal(d) {
   return { id: d.id, address: d.address, status: d.status, state: d.state, vessel: d.vessel, mmsi: d.mmsi || null, port: d.port, supplier: d.supplier, supplierCountry: d.supplierCountry,
     commodity: d.commodity, amount: d.amount, createdAt: d.createdAt, deadline: d.deadline, openTx: d.openTx, explorer: explorer(""), dealUrl: `https://explorer.solana.com/address/${d.address}?cluster=devnet`, releaseTx: d.releaseTx, releasedAt: d.releasedAt,
-    origin: d.origin, demo: !!d.demo, portInfo: (({ code, names, lat, lon, radiusKm, zones }) => ({ code, name: names[0], lat, lon, radiusKm, zones }))(findPort(d.port) || { names: [d.port] }), refundTx: d.refundTx, events: d.events,
+    origin: d.origin, demo: !!d.demo, custom: !!d.custom, portInfo: (({ code, names, lat, lon, radiusKm, zones }) => ({ code, name: names[0], lat, lon, radiusKm, zones }))(findPort(d.port) || { names: [d.port] }), refundTx: d.refundTx, events: d.events,
     supplierCheck: d.supplierCheck && { at: d.supplierCheck.at, verdict: d.supplierCheck.verdict,
       registry: pick(d.supplierCheck.registry), sanctions: pick(d.supplierCheck.sanctions),
       ofac: d.supplierCheck.ofac && { matched: d.supplierCheck.ofac.matched, listDate: d.supplierCheck.ofac.listDate, matches: d.supplierCheck.ofac.matches },
@@ -68,6 +68,58 @@ async function openDemo(body) {
   return [200, publicDeal(deal)];
 }
 
+// ---------- "Create your own deal": a visitor picks the port, the ship and the supplier ----------
+const USER_GAP_MIN = Number(process.env.USER_GAP_MINUTES || 3);
+let portsCache = { at: 0, list: [] };
+// Ports where Quay hears cargo ships right now (only those can be watched honestly).
+async function coveredPorts() {
+  if (Date.now() - portsCache.at < 10 * 60000 && portsCache.list.length) return portsCache.list;
+  const all = await quayJson("/ports").catch(() => []);
+  const out = [];
+  await Promise.all(all.map(async (p) => {
+    const a = await quayJson(`/approaching?port=${encodeURIComponent(p.unlocode)}&limit=8`).catch(() => null);
+    const n = (a?.inbound || []).filter((x) => x.mmsi && x.name).length;
+    if (n) out.push({ code: p.unlocode, name: p.port, inbound: n });
+  }));
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  portsCache = { at: Date.now(), list: out };
+  return out;
+}
+async function inbound(port) {
+  const a = await quayJson(`/approaching?port=${encodeURIComponent(port)}&limit=8`).catch(() => null);
+  return { port: a?.port || port, ships: (a?.inbound || []).filter((x) => x.mmsi && x.name)
+    .map((x) => ({ name: x.name, mmsi: String(x.mmsi), distanceKm: x.distance_km, hoursToPort: x.hours_to_port_area, destination: x.destination || null })) };
+}
+const clean = (v, max) => String(v ?? "").replace(/[^\p{L}\p{N} .,&'()\-\/]/gu, "").replace(/\s+/g, " ").trim().slice(0, max);
+
+async function openUserDeal(body) {
+  const db = load();
+  const open = db.deals.filter((d) => d.status === "open");
+  if (open.length >= MAX_OPEN + 2) return [429, { error: `${open.length} deals are already open on the shared test wallet. Watch one settle, or try again later.` }];
+  const last = Math.max(0, ...db.deals.filter((d) => d.custom).map((d) => Date.parse(d.createdAt)));
+  if (Date.now() - last < USER_GAP_MIN * 60000) return [429, { error: `Someone opened a deal ${Math.max(1, Math.round((Date.now() - last) / 60000))} min ago. One every ${USER_GAP_MIN} min keeps the shared test wallet alive.` }];
+  const supplier = clean(body.supplier, 80), country = clean(body.country, 40), commodity = clean(body.commodity, 60) || "General cargo";
+  const amount = Math.round(Number(body.amount));
+  if (supplier.length < 2) return [400, { error: "Enter the supplier's company name." }];
+  if (!(amount >= 100 && amount <= 10000)) return [400, { error: "Amount must be between 100 and 10,000 test USDC." }];
+  if (!findPort(body.port)) return [400, { error: "Pick a port from the list." }];
+  // The ship must really be heading to that port right now, per Quay.
+  const live = await inbound(body.port);
+  const ship = live.ships.find((x) => x.mmsi === String(body.mmsi));
+  if (!ship) return [400, { error: "That ship is no longer in the inbound list for this port. Pick another one." }];
+  if (open.some((d) => d.mmsi === ship.mmsi)) return [409, { error: `${ship.name} already has an open deal. Pick another ship.` }];
+  const dealId = Date.now();
+  const hours = Number(ship.hoursToPort) || 0;
+  const deadline = Math.floor(Date.now() / 1000) + Math.max(2 * 86400, Math.ceil((hours + 24) * 3600));
+  const r = await openDeal({ buyer: keypair("buyer"), seller: CFG.seller, verifier: CFG.verifier, mint: CFG.mint, dealId, amount: amount * 1e6, vessel: ship.name, port: live.port, deadline });
+  const deal = { id: String(dealId), address: r.deal, mint: CFG.mint, buyer: CFG.buyer, seller: CFG.seller, status: "open", state: "FUNDED", vessel: ship.name, mmsi: ship.mmsi,
+    port: live.port, supplier, supplierCountry: country || null, commodity, amount, createdAt: new Date().toISOString(), deadline: new Date(deadline * 1000).toISOString(),
+    openTx: { signature: r.signature, url: r.url }, origin: { distanceKm: ship.distanceKm, hoursToPort: ship.hoursToPort, destinationReported: ship.destination }, custom: true, rounds: [] };
+  db.deals.unshift(deal); save(db);
+  setTimeout(() => runTick(), 2000);
+  return [200, publicDeal(deal)];
+}
+
 let ticking = false;
 async function runTick() {
   if (ticking) return; ticking = true;
@@ -80,6 +132,13 @@ http.createServer(async (req, res) => {
     if (u.pathname === "/api/state") {
       const db = load();
       return send(res, 200, { chain: { ...CFG, cluster: "devnet" }, tickMinutes: TICK_MIN, deals: db.deals.slice(0, 30).map(publicDeal) });
+    }
+    if (u.pathname === "/api/ports") return send(res, 200, { ports: await coveredPorts() });
+    if (u.pathname === "/api/inbound") return send(res, 200, await inbound(String(u.searchParams.get("port") || "").slice(0, 40)));
+    if (u.pathname === "/api/deal" && req.method === "POST") {
+      let raw = ""; for await (const c of req) { raw += c; if (raw.length > 2000) break; }
+      let body = {}; try { body = JSON.parse(raw || "{}"); } catch {}
+      try { const [c, b] = await openUserDeal(body); return send(res, c, b); } catch (e) { return send(res, 500, { error: "Could not open the escrow: " + e.message }); }
     }
     if (u.pathname === "/api/chain-deal") return send(res, 200, await readDeal(u.searchParams.get("address")));
     if (u.pathname === "/api/demo" && req.method === "POST") {

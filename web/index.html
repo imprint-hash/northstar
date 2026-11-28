@@ -26,6 +26,7 @@
     <p class="lede">You lock the payment in a Solana escrow. Northstar checks the supplier, then watches the real ship from live AIS radio. The money moves only when the vessel is stopped in the destination port, and comes back to you if it never arrives.</p>
     <div class="hero-actions">
       <button class="btn primary" id="demoBtn">Open a live demo deal</button>
+      <a class="btn ghost" href="#new">Create your own deal</a>
       <a class="btn ghost" href="#app">Watch the deals</a>
     </div>
     <p class="demo-note" id="demoNote" role="status"></p>
@@ -41,6 +42,36 @@
     <img class="star" src="logo.svg" alt="">
     <span class="tag t1">supplier verified</span><span class="tag t2">vessel in port</span><span class="tag t3">paid on arrival</span>
   </div>
+</section>
+
+<section class="new" id="new" aria-labelledby="newTitle">
+  <div class="new-head">
+    <p class="eyebrow">Try it as an importer</p>
+    <h2 id="newTitle">Lock a payment for a real shipment</h2>
+    <p class="muted">Pick a port, choose a cargo ship that is heading there right now, and name your supplier. Northstar checks the supplier, watches the ship, and pays only when it docks.</p>
+  </div>
+  <form class="bol" id="dealForm" novalidate>
+    <fieldset>
+      <legend><span class="n">1</span> Destination port</legend>
+      <select id="fPort" required><option value="">Loading ports Quay can see…</option></select>
+    </fieldset>
+    <fieldset>
+      <legend><span class="n">2</span> Ship carrying your goods</legend>
+      <div class="ships" id="fShips"><p class="muted small">Choose a port to see the cargo ships heading there now.</p></div>
+    </fieldset>
+    <fieldset class="grid2">
+      <legend><span class="n">3</span> Supplier and goods</legend>
+      <label>Supplier company<input id="fSupplier" maxlength="80" placeholder="e.g. Unilever PLC" required></label>
+      <label>Supplier country<input id="fCountry" maxlength="40" placeholder="e.g. United Kingdom"></label>
+      <label>Goods<input id="fGoods" maxlength="60" placeholder="e.g. Household goods"></label>
+      <label>Amount (test USDC)<input id="fAmount" type="number" min="100" max="10000" step="100" value="2500" required></label>
+    </fieldset>
+    <div class="bol-foot">
+      <button class="btn primary" id="fSubmit" type="submit">Lock payment in escrow</button>
+      <p class="demo-note" id="fNote" role="status"></p>
+    </div>
+    <p class="fine">Demo: the money is test USDC on Solana devnet from Northstar's demo buyer wallet, and it is paid to a demo supplier wallet. The supplier name you enter is checked live against a company registry, a Telegraph sanctions miner and the US Treasury OFAC list. In production your own wallet signs this step.</p>
+  </form>
 </section>
 
 <main id="app" class="app">
