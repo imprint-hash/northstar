@@ -153,4 +153,5 @@ http.createServer(async (req, res) => {
 }).listen(PORT, "127.0.0.1", () => console.log(`northstar on 127.0.0.1:${PORT}, agent every ${TICK_MIN} min`));
 
 setInterval(runTick, TICK_MIN * 60000);
+coveredPorts().catch(() => {}); setInterval(() => coveredPorts().catch(() => {}), 9 * 60000); // keep the port list warm
 setTimeout(runTick, 5000);
