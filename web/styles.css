@@ -133,6 +133,7 @@ h3 { font: 600 15px var(--display); margin: 0; }
 @media (max-width: 1100px) {
   .app { grid-template-columns: 1fr; margin: 10px 16px 0; }
   .list, .detail { border-right: 0; border-bottom: 1px solid var(--line); }
+  .desk { grid-template-columns: 1fr; }
   .deals { max-height: 360px; } .detail { max-height: none; } }
 @media (max-width: 760px) {
   .top { padding: 12px 16px; gap: 12px; } .top nav { display: none; } .chain-pill { margin-left: auto; }
