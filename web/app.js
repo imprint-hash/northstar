@@ -35,7 +35,7 @@ function renderList() {
     const pct = d.status === "released" ? 100 : Math.max(4, Math.min(96, 100 - ((dist ?? total) / total) * 100));
     return `<button class="deal ${d.id === selected ? "active" : ""}" data-id="${esc(d.id)}">
       <div class="row1"><span class="vessel">${esc(d.vessel)}${d.custom ? `<span class="tag-you">VISITOR</span>` : ""}</span>${pillFor(d)}</div>
-      <div class="route"><span>AT SEA</span><span class="track"><b style="left:calc(${pct}% - 5px)"></b></span><span>${esc(d.portInfo?.code || d.port)}</span></div>
+      <div class="route"><span>${d.status === "released" ? "DOCKED" : d.status === "refunded" ? "NO SHOW" : d.status === "blocked" ? "BLOCKED" : "AT SEA"}</span><span class="track"><b style="left:calc(${pct}% - 5px)"></b></span><span>${esc(d.portInfo?.code || d.port)}</span></div>
       <div class="row3"><span>${esc(d.supplier)}</span><span>${usd(d.amount)}</span></div>
     </button>`;
   }).join("");
