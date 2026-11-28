@@ -163,3 +163,4 @@ h3 { font: 600 15px var(--display); margin: 0; }
 .small { font-size: 13px; }
 .tag-you { font: 600 10px var(--mono); letter-spacing: .06em; color: var(--star); border: 1px solid var(--star); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
 @media (max-width: 720px) { .bol .grid2 { grid-template-columns: 1fr; } .new { padding: 40px 16px 8px; } }
+.ship .dest-ok { color: var(--paid); }

@@ -222,8 +222,11 @@ $("#fPort").addEventListener("change", async (e) => {
   if (!e.target.value) { box.innerHTML = `<p class="muted small">Choose a port to see the cargo ships heading there now.</p>`; return; }
   box.innerHTML = `<p class="muted small">Asking Quay which cargo ships are heading there…</p>`;
   try {
-    const { ships } = await (await fetch(`api/inbound?port=${encodeURIComponent(e.target.value)}`)).json();
-    box.innerHTML = ships.length ? ships.map((x) => `<button type="button" class="ship" aria-pressed="false" data-mmsi="${esc(x.mmsi)}"><b>${esc(x.name)}</b><span>MMSI ${esc(x.mmsi)}</span><span>${Math.round(x.distanceKm)} km out · about ${x.hoursToPort} h to port</span></button>`).join("")
+    const { port, ships: raw } = await (await fetch(`api/inbound?port=${encodeURIComponent(e.target.value)}`)).json();
+    const key = String(port || "").toUpperCase().slice(0, 5), code = e.target.value.slice(2);
+    const bound = (x) => { const d = String(x.destination || "").toUpperCase(); return d && (d.includes(key) || d.includes(code)); };
+    const ships = [...raw].sort((a, b) => bound(b) - bound(a));
+    box.innerHTML = ships.length ? ships.map((x) => `<button type="button" class="ship" aria-pressed="false" data-mmsi="${esc(x.mmsi)}"><b>${esc(x.name)}</b><span>MMSI ${esc(x.mmsi)}</span><span>${Math.round(x.distanceKm)} km out · about ${x.hoursToPort} h to port</span><span class="${bound(x) ? "dest-ok" : ""}">Reports destination: ${esc(x.destination || "not given")}${bound(x) ? " ✓" : ""}</span></button>`).join("")
       : `<p class="muted small">No cargo ship is heading there right now. Try another port.</p>`;
   } catch { box.innerHTML = `<p class="muted small">Could not reach Quay. Try again.</p>`; }
 });
